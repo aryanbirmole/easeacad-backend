@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
+const verifyToken = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -61,6 +62,49 @@ router.post('/login', async (req, res) => {
       token,
       user: { id: user.id, name: user.name, email: user.email },
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// UPDATE NAME (protected)
+router.put('/update-name', verifyToken, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Name cannot be empty' });
+    }
+
+    await pool.query('UPDATE users SET name = ? WHERE id = ?', [name.trim(), req.userId]);
+
+    res.status(200).json({ success: true, name: name.trim() });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// CHANGE PASSWORD (protected)
+router.put('/change-password', verifyToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Both passwords required' });
+    }
+
+    const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [req.userId]);
+    const user = users[0];
+
+    const match = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!match) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, req.userId]);
+
+    res.status(200).json({ success: true, message: 'Password updated successfully' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });
