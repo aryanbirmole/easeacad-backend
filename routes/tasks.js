@@ -43,7 +43,7 @@ router.post('/', verifyToken, async (req, res) => {
   res.status(201).json({ id: result.insertId, subject_id, title, due_date, status: 'pending' });
 });
 
-// PUT /api/tasks/:id (partial update)
+// PUT /api/tasks/:id
 router.put('/:id', verifyToken, async (req, res) => {
   const { title, due_date, status } = req.body;
 
